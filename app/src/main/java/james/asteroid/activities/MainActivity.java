@@ -8,6 +8,8 @@ import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Shader;
 import android.graphics.Typeface;
+import android.hardware.Sensor;
+import android.hardware.SensorManager;
 import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
@@ -45,8 +47,12 @@ import james.asteroid.utils.PreferenceUtils;
 import james.asteroid.views.GameView;
 
 public class MainActivity extends AppCompatActivity
-        implements GameView.GameListener, View.OnClickListener,
-        GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
+        implements GameView.GameListener, View.OnClickListener
+        // GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener,
+         {
+    private SensorManager mSensorManager;
+    Sensor accelerometer;
+    Sensor magnetometer;
 
     private TextView titleView;
     private TextView highScoreView;
@@ -89,7 +95,7 @@ public class MainActivity extends AppCompatActivity
     private Bitmap play;
     private Bitmap pause;
 
-    private GoogleApiClient apiClient;
+    //private GoogleApiClient apiClient;
     private AchievementUtils achievementUtils;
 
     private Handler handler = new Handler();
@@ -129,11 +135,11 @@ public class MainActivity extends AppCompatActivity
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
         setContentView(R.layout.activity_main);
 
-        apiClient = new GoogleApiClient.Builder(this)
-                .addConnectionCallbacks(this)
-                .addOnConnectionFailedListener(this)
-                .addApi(Games.API).addScope(Games.SCOPE_GAMES)
-                .build();
+//        apiClient = new GoogleApiClient.Builder(this)
+//                .addConnectionCallbacks(this)
+//                .addOnConnectionFailedListener(this)
+//                .addApi(Games.API).addScope(Games.SCOPE_GAMES)
+//                .build();
 
         prefs = PreferenceManager.getDefaultSharedPreferences(this);
 
@@ -234,40 +240,40 @@ public class MainActivity extends AppCompatActivity
 
         achievementsView.setImageBitmap(ImageUtils.gradientBitmap(ImageUtils.getVectorBitmap(this, R.drawable.ic_achievements), colorAccent, colorPrimary));
         achievementsView.setOnClickListener(view -> {
-            startActivityForResult(Games.Achievements.getAchievementsIntent(apiClient), 0);
+//            startActivityForResult(Games.Achievements.getAchievementsIntent(apiClient), 0);
             if (isSound)
                 soundPool.play(buttonId, 1, 1, 0, 0, 1);
         });
 
         rankView.setImageBitmap(ImageUtils.gradientBitmap(ImageUtils.getVectorBitmap(this, R.drawable.ic_rank), colorAccent, colorPrimary));
         rankView.setOnClickListener(view -> {
-            startActivityForResult(Games.Leaderboards.getLeaderboardIntent(apiClient, getString(R.string.leaderboard_high_score)), 0);
+//            startActivityForResult(Games.Leaderboards.getLeaderboardIntent(apiClient, getString(R.string.leaderboard_high_score)), 0);
             if (isSound)
                 soundPool.play(buttonId, 1, 1, 0, 0, 1);
         });
 
         gamesView.setImageBitmap(ImageUtils.gradientBitmap(ImageUtils.getVectorBitmap(this, R.drawable.ic_game), colorAccent, colorPrimary));
-        gamesView.setOnClickListener(view -> {
-            if (apiClient != null) {
-                if (apiClient.isConnected()) {
-                    new AlertDialog.Builder(MainActivity.this)
-                            .setTitle(R.string.title_sign_out)
-                            .setMessage(R.string.msg_sign_out)
-                            .setPositiveButton(android.R.string.yes, (dialogInterface, i) -> {
-                                Games.signOut(apiClient);
-                                if (apiClient.isConnected())
-                                    apiClient.disconnect();
-
-                                achievementsView.setVisibility(View.GONE);
-                                rankView.setVisibility(View.GONE);
-                                dialogInterface.dismiss();
-                            })
-                            .setNegativeButton(android.R.string.no, (dialogInterface, i) -> dialogInterface.dismiss())
-                            .create()
-                            .show();
-                } else apiClient.connect();
-            }
-        });
+//        gamesView.setOnClickListener(view -> {
+//            if (apiClient != null) {
+//                if (apiClient.isConnected()) {
+//                    new AlertDialog.Builder(MainActivity.this)
+//                            .setTitle(R.string.title_sign_out)
+//                            .setMessage(R.string.msg_sign_out)
+//                            .setPositiveButton(android.R.string.yes, (dialogInterface, i) -> {
+//                                Games.signOut(apiClient);
+//                                if (apiClient.isConnected())
+//                                    apiClient.disconnect();
+//
+//                                achievementsView.setVisibility(View.GONE);
+//                                rankView.setVisibility(View.GONE);
+//                                dialogInterface.dismiss();
+//                            })
+//                            .setNegativeButton(android.R.string.no, (dialogInterface, i) -> dialogInterface.dismiss())
+//                            .create()
+//                            .show();
+//                } else apiClient.connect();
+//            }
+//        });
 
         aboutView.setImageBitmap(ImageUtils.gradientBitmap(ImageUtils.getVectorBitmap(this, R.drawable.ic_info), colorAccent, colorPrimary));
         aboutView.setOnClickListener(view -> {
@@ -328,7 +334,11 @@ public class MainActivity extends AppCompatActivity
         gameView.setOnClickListener(this);
         animateTitle(true);
 
-        apiClient.connect();
+        // apiClient.connect();
+
+        mSensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
+        accelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        magnetometer = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
     }
 
     private void animateTitle(final boolean isVisible) {
@@ -366,6 +376,8 @@ public class MainActivity extends AppCompatActivity
         if (gameView != null && !isPaused)
             gameView.onPause();
         super.onPause();
+
+        mSensorManager.unregisterListener(gameView);
     }
 
     @Override
@@ -398,20 +410,23 @@ public class MainActivity extends AppCompatActivity
                 }
             }
         }
+
+        mSensorManager.registerListener(gameView, accelerometer, SensorManager.SENSOR_DELAY_UI);
+        mSensorManager.registerListener(gameView, magnetometer, SensorManager.SENSOR_DELAY_UI);
     }
 
     @Override
     protected void onStart() {
         super.onStart();
-        if (apiClient != null)
-            apiClient.connect();
+//        if (apiClient != null)
+//            apiClient.connect();
     }
 
     @Override
     protected void onStop() {
         super.onStop();
-        if (isConnected())
-            apiClient.disconnect();
+//        if (isConnected())
+//            apiClient.disconnect();
     }
 
     @Override
@@ -445,8 +460,8 @@ public class MainActivity extends AppCompatActivity
             highScore = score;
             prefs.edit().putInt(PreferenceUtils.PREF_HIGH_SCORE, score).apply();
 
-            if (isConnected())
-                Games.Leaderboards.submitScore(apiClient, getString(R.string.leaderboard_high_score), highScore);
+//            if (isConnected())
+//                Games.Leaderboards.submitScore(apiClient, getString(R.string.leaderboard_high_score), highScore);
         }
 
         highScoreView.setText(String.format(getString(R.string.score_high), highScore));
@@ -523,41 +538,41 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
-    private boolean isConnected() {
-        return apiClient != null && apiClient.isConnected();
-    }
+//    private boolean isConnected() {
+//        return apiClient != null && apiClient.isConnected();
+//    }
 
-    @Override
-    public void onConnected(@Nullable Bundle bundle) {
-        achievementsView.setVisibility(View.VISIBLE);
-        rankView.setVisibility(View.VISIBLE);
-        gamesView.setVisibility(View.VISIBLE);
-        achievementUtils = new AchievementUtils(this, apiClient);
-    }
+//    @Override
+//    public void onConnected(@Nullable Bundle bundle) {
+//        achievementsView.setVisibility(View.VISIBLE);
+//        rankView.setVisibility(View.VISIBLE);
+//        gamesView.setVisibility(View.VISIBLE);
+//        achievementUtils = new AchievementUtils(this, apiClient);
+//    }
+//
+//    @Override
+//    public void onConnectionSuspended(int i) {
+//        apiClient.connect();
+//        gamesView.setVisibility(View.GONE);
+//    }
 
-    @Override
-    public void onConnectionSuspended(int i) {
-        apiClient.connect();
-        gamesView.setVisibility(View.GONE);
-    }
-
-    @Override
-    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
-        achievementsView.setVisibility(View.GONE);
-        rankView.setVisibility(View.GONE);
-        gamesView.setVisibility(View.GONE);
-        BaseGameUtils.resolveConnectionFailure(this, apiClient, connectionResult, 1801, R.string.msg_sign_in_error);
-    }
+//    @Override
+//    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+//        achievementsView.setVisibility(View.GONE);
+//        rankView.setVisibility(View.GONE);
+//        gamesView.setVisibility(View.GONE);
+//        BaseGameUtils.resolveConnectionFailure(this, apiClient, connectionResult, 1801, R.string.msg_sign_in_error);
+//    }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if (requestCode == 1801) {
-            if (resultCode == RESULT_OK)
-                apiClient.connect();
-            else {
-                Toast.makeText(this, getString(R.string.msg_sign_in_error), Toast.LENGTH_SHORT).show();
-                gamesView.setVisibility(View.VISIBLE);
-            }
-        }
+//        if (requestCode == 1801) {
+//            if (resultCode == RESULT_OK)
+//                apiClient.connect();
+//            else {
+//                Toast.makeText(this, getString(R.string.msg_sign_in_error), Toast.LENGTH_SHORT).show();
+//                gamesView.setVisibility(View.VISIBLE);
+//            }
+//        }
     }
 }

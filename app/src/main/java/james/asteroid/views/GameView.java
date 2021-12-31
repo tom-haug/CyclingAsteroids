@@ -10,6 +10,10 @@ import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Rect;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.AttributeSet;
@@ -35,7 +39,7 @@ import james.asteroid.data.drawer.MessageDrawer;
 import james.asteroid.utils.FontUtils;
 import james.asteroid.utils.ImageUtils;
 
-public class GameView extends SurfaceView implements Runnable, View.OnTouchListener {
+public class GameView extends SurfaceView implements Runnable, View.OnTouchListener, SensorEventListener {
 
     private Paint paint;
     private Paint accentPaint;
@@ -130,6 +134,65 @@ public class GameView extends SurfaceView implements Runnable, View.OnTouchListe
     public void setListener(GameListener listener) {
         this.listener = listener;
     }
+
+
+    /**
+     *  Azimuth, angle of rotation about the -z axis. This value represents the angle between the
+     *  device's y axis and the magnetic north pole. When facing north, this angle is 0, when facing
+     *  south, this angle is π. Likewise, when facing east, this angle is π/2, and when facing west,
+     *  this angle is -π/2. The range of values is -π to π.
+     */
+
+    Float initialAbsAzimut = null;
+    ArrayList<Float> azimutReadings = new ArrayList<Float>();
+
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {  }
+
+    float[] mGravity;
+    float[] mGeomagnetic;
+
+    public void onSensorChanged(SensorEvent event) {
+        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER)
+            mGravity = event.values;
+        if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD)
+            mGeomagnetic = event.values;
+        if (mGravity != null && mGeomagnetic != null) {
+            float R[] = new float[9];
+            float I[] = new float[9];
+            boolean success = SensorManager.getRotationMatrix(R, I, mGravity, mGeomagnetic);
+            if (success) {
+                float orientation[] = new float[3];
+                SensorManager.getOrientation(R, orientation);
+                float currentAbsAzimut = orientation[0]; // orientation contains: azimut, pitch and roll
+
+                if (initialAbsAzimut == null){
+                    initialAbsAzimut = currentAbsAzimut;
+                }
+                float minAbsLeftAzimut = initialAbsAzimut - ((float)Math.PI / 4.0f);
+                float maxAbsRightAzimut = initialAbsAzimut + ((float)Math.PI / 4.0f);
+
+                if (currentAbsAzimut < minAbsLeftAzimut)
+                    currentAbsAzimut = minAbsLeftAzimut;
+                if (currentAbsAzimut > maxAbsRightAzimut)
+                    currentAbsAzimut = maxAbsRightAzimut;
+
+                // Todo: find a better way to smooth out the readings
+                azimutReadings.add(currentAbsAzimut);
+                if (azimutReadings.size() > 15)
+                    azimutReadings.remove(0);
+                float total = 0.0f;
+                for (float reading: azimutReadings){
+                    total += reading;
+                }
+                float average = total / azimutReadings.size();
+
+
+                float relativeToInitial = average - initialAbsAzimut;
+                shipPositionX = (relativeToInitial + ((float)Math.PI / 4.0f)) / (2 * ((float)Math.PI / 4.0f));
+            }
+        }
+    }
+
 
     @Override
     public void run() {
@@ -323,6 +386,9 @@ public class GameView extends SurfaceView implements Runnable, View.OnTouchListe
         asteroids.setMakeAsteroids(!isTutorial);
         projectiles.clear();
         boxes.clear();
+
+        // reset initial facing
+        initialAbsAzimut = null;
 
         if (animator != null && animator.isStarted())
             animator.cancel();
