@@ -1,7 +1,10 @@
 package james.asteroid.activities;
 
 import android.animation.ValueAnimator;
+import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.LinearGradient;
@@ -17,6 +20,7 @@ import android.media.SoundPool;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.IBinder;
 import android.preference.PreferenceManager;
 import android.provider.Settings;
 import android.view.View;
@@ -40,6 +44,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import james.asteroid.R;
 import james.asteroid.data.WeaponData;
+import james.asteroid.services.WahooService;
 import james.asteroid.utils.AchievementUtils;
 import james.asteroid.utils.FontUtils;
 import james.asteroid.utils.ImageUtils;
@@ -53,6 +58,9 @@ public class MainActivity extends AppCompatActivity
     private SensorManager mSensorManager;
     Sensor accelerometer;
     Sensor magnetometer;
+
+    WahooService mWahooService;
+    boolean mBound = false;
 
     private TextView titleView;
     private TextView highScoreView;
@@ -415,11 +423,42 @@ public class MainActivity extends AppCompatActivity
         mSensorManager.registerListener(gameView, magnetometer, SensorManager.SENSOR_DELAY_UI);
     }
 
+    /** Defines callbacks for service binding, passed to bindService() */
+    private ServiceConnection connection = new ServiceConnection() {
+         @Override
+         public void onServiceConnected(ComponentName className,
+                                        IBinder service) {
+             // We've bound to LocalService, cast the IBinder and get LocalService instance
+             WahooService.LocalBinder binder = (WahooService.LocalBinder) service;
+             mWahooService = binder.getService();
+             mBound = true;
+
+             //try calling something
+             if (mBound) {
+                 // Call a method from the LocalService.
+                 // However, if this call were something that might hang, then this request should
+                 // occur in a separate thread to avoid slowing down the activity performance.
+
+//                 int num = mWahooService.getSomething();
+//                 Toast.makeText(this, "number: " + num, Toast.LENGTH_SHORT).show();
+             }
+         }
+
+         @Override
+         public void onServiceDisconnected(ComponentName arg0) {
+             mBound = false;
+         }
+    };
+
     @Override
     protected void onStart() {
         super.onStart();
 //        if (apiClient != null)
 //            apiClient.connect();
+
+        // Bind to LocalService
+        Intent intent = new Intent(this, WahooService.class);
+        bindService(intent, connection, Context.BIND_AUTO_CREATE);
     }
 
     @Override
@@ -427,6 +466,9 @@ public class MainActivity extends AppCompatActivity
         super.onStop();
 //        if (isConnected())
 //            apiClient.disconnect();
+
+        unbindService(connection);
+        mBound = false;
     }
 
     @Override

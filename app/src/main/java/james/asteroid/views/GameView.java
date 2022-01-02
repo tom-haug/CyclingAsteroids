@@ -36,6 +36,7 @@ import james.asteroid.data.WeaponData;
 import james.asteroid.data.drawer.AsteroidDrawer;
 import james.asteroid.data.drawer.BackgroundDrawer;
 import james.asteroid.data.drawer.MessageDrawer;
+import james.asteroid.services.WahooService;
 import james.asteroid.utils.FontUtils;
 import james.asteroid.utils.ImageUtils;
 
