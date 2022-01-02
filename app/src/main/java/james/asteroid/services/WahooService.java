@@ -18,7 +18,7 @@ import com.wahoofitness.connector.listeners.discovery.DiscoveryListener;
 public class WahooService extends Service {
     // Binder given to clients
     private final IBinder binder = new LocalBinder();
-
+    private ConnectionParams connectionParams;
 
     /**
      * Class used for the client Binder.  Because we know this service always
@@ -68,5 +68,9 @@ public class WahooService extends Service {
 
     public void stopDiscovery(@NonNull DiscoveryListener discoveryListener){
         mHardwareConnector.stopDiscovery(discoveryListener);
+    }
+
+    public void saveConnection(ConnectionParams params){
+        connectionParams = params;
     }
 }

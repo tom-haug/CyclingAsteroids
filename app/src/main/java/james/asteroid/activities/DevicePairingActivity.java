@@ -13,8 +13,9 @@ import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.view.View;
+import android.widget.Button;
 import android.widget.LinearLayout;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import com.wahoofitness.connector.conn.connections.params.ConnectionParams;
@@ -41,15 +42,8 @@ public class DevicePairingActivity extends AppCompatActivity implements Discover
             mWahooService = binder.getService();
             mBound = true;
 
-            //try calling something
-            //if (mBound) {
-                // Call a method from the LocalService.
-                // However, if this call were something that might hang, then this request should
-                // occur in a separate thread to avoid slowing down the activity performance.
-
-                 mWahooService.startDiscovery(DevicePairingActivity.this);
-                 Toast.makeText(DevicePairingActivity.this, "Discovery Started", Toast.LENGTH_SHORT).show();
-            //}
+             mWahooService.startDiscovery(DevicePairingActivity.this);
+             Toast.makeText(DevicePairingActivity.this, "Discovery Started", Toast.LENGTH_SHORT).show();
         }
 
         @Override
@@ -64,11 +58,6 @@ public class DevicePairingActivity extends AppCompatActivity implements Discover
         setContentView(R.layout.activity_device_pairing);
 
         layout = findViewById(R.id.devicePairingLayout);
-
-        TextView textView = new TextView(this);
-        textView.setText("SOMETHING !");
-        layout.addView(textView);
-
     }
 
     @Override
@@ -105,7 +94,7 @@ public class DevicePairingActivity extends AppCompatActivity implements Discover
     public void onRequestPermissionsResult(int requestCode,
                                            @NonNull String[] permissions,
                                            @NonNull int[] grantResults) {
-        Toast.makeText(DevicePairingActivity.this, "onRequestPermissionsResult", Toast.LENGTH_SHORT).show();
+        // Toast.makeText(DevicePairingActivity.this, "onRequestPermissionsResult", Toast.LENGTH_SHORT).show();
     }
 
 
@@ -113,6 +102,7 @@ public class DevicePairingActivity extends AppCompatActivity implements Discover
     protected void onStop() {
         super.onStop();
 
+        mWahooService.stopDiscovery(this);
         unbindService(connection);
         mBound = false;
     }
@@ -123,11 +113,22 @@ public class DevicePairingActivity extends AppCompatActivity implements Discover
         String productType = connectionParams.getProductType().name();
         String sensorType = connectionParams.getSensorType().name();
         String id = connectionParams.getId();
-        TextView textView = new TextView(this);
 
-        textView.setText("Device - Name: " + name + ", Sensor Type: " + sensorType + " Product: " + productType + ", ID: " + id);
-        layout.addView(textView);
+        Button button = new Button(this);
+        button.setText("Device - Name: " + name + ", Sensor Type: " + sensorType + " Product: " + productType + ", ID: " + id);
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mWahooService.saveConnection(connectionParams);
+
+                Intent intent = new Intent(DevicePairingActivity.this, MainActivity.class);
+                startActivity(intent);
+            }
+        });
+        layout.addView(button);
     }
+
+
 
     @Override
     public void onDiscoveredDeviceLost(@NonNull ConnectionParams connectionParams) {
