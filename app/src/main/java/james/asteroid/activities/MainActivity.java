@@ -428,7 +428,7 @@ public class MainActivity extends AppCompatActivity
             // We've bound to LocalService, cast the IBinder and get LocalService instance
             WahooService.LocalBinder binder = (WahooService.LocalBinder) service;
             mWahooService = binder.getService();
-            mWahooService.setResistance(1);
+            mWahooService.setResistance(0.0f);
             Toast.makeText(MainActivity.this, "Difficulty Set to 1", Toast.LENGTH_SHORT);
             mBound = true;
         }
@@ -506,7 +506,8 @@ public class MainActivity extends AppCompatActivity
         if (achievementUtils != null)
             achievementUtils.onAsteroidPassed();
 
-        mWahooService.setResistance(mWahooService.resistanceLevel + 1);
+        float currentResistance = mWahooService.getResistance();
+        mWahooService.setResistance(currentResistance + 0.05f);
     }
 
     @Override

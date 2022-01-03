@@ -13,6 +13,7 @@ import com.wahoofitness.connector.HardwareConnectorEnums;
 import com.wahoofitness.connector.HardwareConnectorTypes;
 import com.wahoofitness.connector.capabilities.BikeTrainer;
 import com.wahoofitness.connector.capabilities.Capability;
+import com.wahoofitness.connector.capabilities.CrankRevs;
 import com.wahoofitness.connector.capabilities.Kickr;
 import com.wahoofitness.connector.conn.connections.SensorConnection;
 import com.wahoofitness.connector.conn.connections.params.ConnectionParams;
@@ -26,8 +27,8 @@ public class WahooService extends Service {
     private ConnectionParams connectionParams;
     private SensorConnection connection;
     private Kickr kickr;
+    private CrankRevs crankRevs;
     public boolean connectionComplete = false;
-    public int resistanceLevel = 0;
     /**
      * Class used for the client Binder.  Because we know this service always
      * runs in the same process as its clients, we don't need to deal with IPC.
@@ -59,6 +60,9 @@ public class WahooService extends Service {
                 kickr = (Kickr)sensorConnection.getCurrentCapability(capabilityType);
                 connectionComplete = true;
 //                kickr.sendSetStandardMode(1);
+            }
+            else if (capabilityType == Capability.CapabilityType.CrankRevs){
+                crankRevs = (CrankRevs)sensorConnection.getCurrentCapability(capabilityType);
             }
         }
 
@@ -104,24 +108,30 @@ public class WahooService extends Service {
         connectionParams = params;
         connectionComplete = false;
         connection = mHardwareConnector.requestSensorConnection(connectionParams, mListner);
-//        while (!connectionComplete){
-//            try {
-//                TimeUnit.SECONDS.sleep(1);
-//            } catch (InterruptedException e) {
-//                e.printStackTrace();
-//            }
-//        }
-//        return;
     }
 
     public void disconnect(){
         connection.disconnect();
     }
 
-    public void setResistance(int resistance){
-        if (resistance < 1 || resistance > 9)
+    public void setResistance(float resistance){
+        assert kickr != null;
+        if (resistance < 0.0 || resistance > 1.0)
             return;
-        resistanceLevel = resistance;
-        kickr.sendSetStandardMode(resistance);
+
+        kickr.sendSetResistanceMode(resistance);
+    }
+
+    public float getResistance(){
+        assert kickr != null;
+        float resistance = kickr.getResistanceModeResistance();
+        return resistance;
+    }
+
+    public int getCadence(){
+        assert crankRevs != null;
+        CrankRevs.Data data = crankRevs.getCrankRevsData();
+        assert data != null;
+        return data.getCrankRevs();
     }
 }

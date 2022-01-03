@@ -26,6 +26,10 @@ import android.view.animation.DecelerateInterpolator;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 import androidx.core.content.ContextCompat;
 import james.asteroid.R;
@@ -36,7 +40,6 @@ import james.asteroid.data.WeaponData;
 import james.asteroid.data.drawer.AsteroidDrawer;
 import james.asteroid.data.drawer.BackgroundDrawer;
 import james.asteroid.data.drawer.MessageDrawer;
-import james.asteroid.services.WahooService;
 import james.asteroid.utils.FontUtils;
 import james.asteroid.utils.ImageUtils;
 
@@ -415,7 +418,13 @@ public class GameView extends SurfaceView implements Runnable, View.OnTouchListe
 
         if (listener != null)
             listener.onStart(isTutorial);
+
+        final Runnable beeper = () -> fire();
+        fireTask = scheduler.scheduleAtFixedRate(beeper, 0, 500, TimeUnit.MILLISECONDS);
     }
+
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+    private ScheduledFuture<?> fireTask;
 
     /**
      * Stop the game, reset everything.
@@ -452,6 +461,8 @@ public class GameView extends SurfaceView implements Runnable, View.OnTouchListe
         animator1.setInterpolator(new DecelerateInterpolator());
         animator1.addUpdateListener(valueAnimator -> speed = (float) valueAnimator.getAnimatedValue());
         animator1.start();
+
+        fireTask.cancel(false);
     }
 
     /**
@@ -494,44 +505,49 @@ public class GameView extends SurfaceView implements Runnable, View.OnTouchListe
         thread.start();
     }
 
+    private void fire(){
+        if (ammoAnimator != null && ammoAnimator.isStarted())
+            ammoAnimator.end();
+        if (ammo > 0) {
+            weapon.fire(projectiles, shipPositionX, shipBitmap.getHeight() * shipPositionY * 1.5f);
+            if (listener != null)
+                listener.onProjectileFired(weapon);
+
+            // TEMP: UNLIMITED AMMO!
+//            ammoAnimator = ValueAnimator.ofFloat(ammo, ammo - 1);
+//            ammoAnimator.setDuration(250);
+//            ammoAnimator.setInterpolator(new DecelerateInterpolator());
+//            ammoAnimator.addUpdateListener(valueAnimator -> ammo = (float) valueAnimator.getAnimatedValue());
+//            ammoAnimator.start();
+        } else if (tutorial > TUTORIAL_NONE && boxes.size() == 0) { // definitely tutorial nonsense
+            messages.clear();
+            messages.drawMessage(getContext(), R.string.msg_too_many_projectiles);
+            messages.drawMessage(getContext(), R.string.msg_free_refill);
+            boxes.add(new BoxData(boxBitmap, box -> {
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    ammoAnimator = ValueAnimator.ofFloat(ammo, weapon.capacity);
+                    ammoAnimator.setDuration(250);
+                    ammoAnimator.setInterpolator(new DecelerateInterpolator());
+                    ammoAnimator.addUpdateListener(valueAnimator ->
+                            ammo = (float) valueAnimator.getAnimatedValue());
+                    ammoAnimator.start();
+
+                    if (listener != null)
+                        listener.onAmmoReplenished();
+                });
+            }));
+        } else if (listener != null) {
+            messages.drawMessage(getContext(), R.string.msg_out_of_ammo);
+            listener.onOutOfAmmo();
+        }
+    }
+
     @Override
     public boolean onTouch(View v, MotionEvent event) {
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
                 if (System.currentTimeMillis() - projectileTime < 350 && (tutorial == TUTORIAL_NONE || tutorial > TUTORIAL_UPGRADE)) {
-                    if (ammoAnimator != null && ammoAnimator.isStarted())
-                        ammoAnimator.end();
-                    if (ammo > 0) {
-                        weapon.fire(projectiles, shipPositionX, shipBitmap.getHeight() * shipPositionY * 1.5f);
-                        if (listener != null)
-                            listener.onProjectileFired(weapon);
-
-                        ammoAnimator = ValueAnimator.ofFloat(ammo, ammo - 1);
-                        ammoAnimator.setDuration(250);
-                        ammoAnimator.setInterpolator(new DecelerateInterpolator());
-                        ammoAnimator.addUpdateListener(valueAnimator -> ammo = (float) valueAnimator.getAnimatedValue());
-                        ammoAnimator.start();
-                    } else if (tutorial > TUTORIAL_NONE && boxes.size() == 0) { // definitely tutorial nonsense
-                        messages.clear();
-                        messages.drawMessage(getContext(), R.string.msg_too_many_projectiles);
-                        messages.drawMessage(getContext(), R.string.msg_free_refill);
-                        boxes.add(new BoxData(boxBitmap, box -> {
-                            new Handler(Looper.getMainLooper()).post(() -> {
-                                ammoAnimator = ValueAnimator.ofFloat(ammo, weapon.capacity);
-                                ammoAnimator.setDuration(250);
-                                ammoAnimator.setInterpolator(new DecelerateInterpolator());
-                                ammoAnimator.addUpdateListener(valueAnimator ->
-                                        ammo = (float) valueAnimator.getAnimatedValue());
-                                ammoAnimator.start();
-
-                                if (listener != null)
-                                    listener.onAmmoReplenished();
-                            });
-                        }));
-                    } else if (listener != null) {
-                        messages.drawMessage(getContext(), R.string.msg_out_of_ammo);
-                        listener.onOutOfAmmo();
-                    }
+                    fire();
                     return false;
                 } else projectileTime = System.currentTimeMillis();
 
