@@ -21,6 +21,11 @@ import android.widget.Toast;
 import com.wahoofitness.connector.conn.connections.params.ConnectionParams;
 import com.wahoofitness.connector.listeners.discovery.DiscoveryListener;
 
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+
 import james.asteroid.R;
 import james.asteroid.services.WahooService;
 
@@ -119,15 +124,30 @@ public class DevicePairingActivity extends AppCompatActivity implements Discover
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                mWahooService.saveConnection(connectionParams);
+                mWahooService.connect(connectionParams);
 
-                Intent intent = new Intent(DevicePairingActivity.this, MainActivity.class);
-                startActivity(intent);
+                // Create a task
+                Runnable task = () -> {
+                    if (mWahooService.connectionComplete){
+                        scheduledTask.cancel(false);
+                        Intent intent = new Intent(DevicePairingActivity.this, MainActivity.class);
+                        startActivity(intent);
+                    }
+                };
+
+                scheduledTask = executorService.scheduleAtFixedRate(task, 0, 1, TimeUnit.SECONDS);
             }
         });
         layout.addView(button);
     }
 
+    final ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
+    static ScheduledFuture<?> scheduledTask;
+
+
+    public void continueOnConnected(){
+
+    }
 
 
     @Override

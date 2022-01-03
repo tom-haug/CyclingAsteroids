@@ -32,16 +32,10 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.games.Games;
-import com.google.example.games.basegameutils.BaseGameUtils;
-
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+
 import james.asteroid.R;
 import james.asteroid.data.WeaponData;
 import james.asteroid.services.WahooService;
@@ -53,8 +47,9 @@ import james.asteroid.views.GameView;
 
 public class MainActivity extends AppCompatActivity
         implements GameView.GameListener, View.OnClickListener
+        //SensorConnection.Listener
         // GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener,
-         {
+{
     private SensorManager mSensorManager;
     Sensor accelerometer;
     Sensor magnetometer;
@@ -344,7 +339,7 @@ public class MainActivity extends AppCompatActivity
 
         // apiClient.connect();
 
-        mSensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
+        mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         accelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         magnetometer = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
     }
@@ -423,31 +418,25 @@ public class MainActivity extends AppCompatActivity
         mSensorManager.registerListener(gameView, magnetometer, SensorManager.SENSOR_DELAY_UI);
     }
 
-    /** Defines callbacks for service binding, passed to bindService() */
+    /**
+     * Defines callbacks for service binding, passed to bindService()
+     */
     private ServiceConnection connection = new ServiceConnection() {
-         @Override
-         public void onServiceConnected(ComponentName className,
-                                        IBinder service) {
-             // We've bound to LocalService, cast the IBinder and get LocalService instance
-             WahooService.LocalBinder binder = (WahooService.LocalBinder) service;
-             mWahooService = binder.getService();
-             mBound = true;
+        @Override
+        public void onServiceConnected(ComponentName className,
+                                       IBinder service) {
+            // We've bound to LocalService, cast the IBinder and get LocalService instance
+            WahooService.LocalBinder binder = (WahooService.LocalBinder) service;
+            mWahooService = binder.getService();
+            mWahooService.setResistance(1);
+            Toast.makeText(MainActivity.this, "Difficulty Set to 1", Toast.LENGTH_SHORT);
+            mBound = true;
+        }
 
-             //try calling something
-             if (mBound) {
-                 // Call a method from the LocalService.
-                 // However, if this call were something that might hang, then this request should
-                 // occur in a separate thread to avoid slowing down the activity performance.
-
-//                 int num = mWahooService.getSomething();
-//                 Toast.makeText(this, "number: " + num, Toast.LENGTH_SHORT).show();
-             }
-         }
-
-         @Override
-         public void onServiceDisconnected(ComponentName arg0) {
-             mBound = false;
-         }
+        @Override
+        public void onServiceDisconnected(ComponentName arg0) {
+            mBound = false;
+        }
     };
 
     @Override
@@ -516,6 +505,8 @@ public class MainActivity extends AppCompatActivity
     public void onAsteroidPassed() {
         if (achievementUtils != null)
             achievementUtils.onAsteroidPassed();
+
+        mWahooService.setResistance(mWahooService.resistanceLevel + 1);
     }
 
     @Override
@@ -608,6 +599,7 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
 //        if (requestCode == 1801) {
 //            if (resultCode == RESULT_OK)
 //                apiClient.connect();

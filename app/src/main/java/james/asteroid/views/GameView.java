@@ -154,9 +154,9 @@ public class GameView extends SurfaceView implements Runnable, View.OnTouchListe
 
     public void onSensorChanged(SensorEvent event) {
         if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER)
-            mGravity = event.values;
+            mGravity = LPF(event.values.clone(), mGravity);
         if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD)
-            mGeomagnetic = event.values;
+            mGeomagnetic = LPF(event.values.clone(), mGeomagnetic);
         if (mGravity != null && mGeomagnetic != null) {
             float R[] = new float[9];
             float I[] = new float[9];
@@ -177,21 +177,29 @@ public class GameView extends SurfaceView implements Runnable, View.OnTouchListe
                 if (currentAbsAzimut > maxAbsRightAzimut)
                     currentAbsAzimut = maxAbsRightAzimut;
 
-                // Todo: find a better way to smooth out the readings
-                azimutReadings.add(currentAbsAzimut);
-                if (azimutReadings.size() > 15)
-                    azimutReadings.remove(0);
-                float total = 0.0f;
-                for (float reading: azimutReadings){
-                    total += reading;
-                }
-                float average = total / azimutReadings.size();
+//                // Todo: find a better way to smooth out the readings
+//                azimutReadings.add(currentAbsAzimut);
+//                if (azimutReadings.size() > 15)
+//                    azimutReadings.remove(0);
+//                float total = 0.0f;
+//                for (float reading: azimutReadings){
+//                    total += reading;
+//                }
+//                float average = total / azimutReadings.size();
 
 
-                float relativeToInitial = average - initialAbsAzimut;
+                float relativeToInitial = currentAbsAzimut - initialAbsAzimut;
                 shipPositionX = (relativeToInitial + ((float)Math.PI / 4.0f)) / (2 * ((float)Math.PI / 4.0f));
             }
         }
+    }
+
+    private static final float ALPHA = 0.1f; //1/16F;//adjust sensitivity
+    private float[] LPF(float[] input, float[] output) {
+        if ( output == null ) return input;
+        for ( int i=0; i<input.length; i++ ) {
+            output[i] = output[i] + ALPHA * (input[i] - output[i]);
+        }return output;
     }
 
 
@@ -290,8 +298,9 @@ public class GameView extends SurfaceView implements Runnable, View.OnTouchListe
                                 if (listener != null)
                                     listener.onAsteroidHit(++score);
 
-                                if (score % 20 == 0 && (score / 20) < (WeaponData.WEAPONS.length - 1)) {
-                                    final WeaponData weapon = WeaponData.WEAPONS[score / 20];
+                                //if (score % 20 == 0 && (score / 20) < (WeaponData.WEAPONS.length - 1)) {
+                                if (score % 5 == 0 && (score / 5) < (WeaponData.WEAPONS.length - 1)) {
+                                    final WeaponData weapon = WeaponData.WEAPONS[score / 5];
                                     boxes.add(new BoxData(weapon.getBitmap(getContext()), box -> {
                                         GameView.this.weapon = weapon;
                                         if (weapon.capacity < ammo)
