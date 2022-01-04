@@ -31,7 +31,7 @@ public class ProjectileData {
 
         float left = x * width;
         float top = height - y;
-        return new Rect((int) left - 2, (int) top - 2, (int) left + 2, (int) top + 2);
+        return new Rect((int) left - 5, (int) top - 5, (int) left + 5, (int) top + 5);
     }
 
 }

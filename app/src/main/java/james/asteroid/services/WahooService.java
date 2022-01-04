@@ -4,31 +4,46 @@ import android.app.Service;
 import android.content.Intent;
 import android.os.Binder;
 import android.os.IBinder;
+import android.util.Log;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.wahoofitness.common.datatypes.AngularSpeed;
 import com.wahoofitness.connector.HardwareConnector;
 import com.wahoofitness.connector.HardwareConnectorEnums;
 import com.wahoofitness.connector.HardwareConnectorTypes;
 import com.wahoofitness.connector.capabilities.BikeTrainer;
 import com.wahoofitness.connector.capabilities.Capability;
+import com.wahoofitness.connector.capabilities.Connection;
 import com.wahoofitness.connector.capabilities.CrankRevs;
+import com.wahoofitness.connector.capabilities.DeviceInfo;
 import com.wahoofitness.connector.capabilities.Kickr;
+import com.wahoofitness.connector.capabilities.KickrAdvanced;
 import com.wahoofitness.connector.conn.connections.SensorConnection;
 import com.wahoofitness.connector.conn.connections.params.ConnectionParams;
 import com.wahoofitness.connector.listeners.discovery.DiscoveryListener;
 
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
+import james.asteroid.activities.DevicePairingActivity;
+import james.asteroid.activities.MainActivity;
+
 public class WahooService extends Service {
+    private static final String TAG = "WahooService";
+
     // Binder given to clients
     private final IBinder binder = new LocalBinder();
     private ConnectionParams connectionParams;
     private SensorConnection connection;
     private Kickr kickr;
     private CrankRevs crankRevs;
-    public boolean connectionComplete = false;
+    private double cadence = 0.0;
+    //public boolean connectionComplete = true;
     /**
      * Class used for the client Binder.  Because we know this service always
      * runs in the same process as its clients, we don't need to deal with IPC.
@@ -53,16 +68,28 @@ public class WahooService extends Service {
         }
     };
 
+    final ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
+    static ScheduledFuture<?> scheduledTask;
+
+    private void startCrankRevsTask(){
+        // Create a task
+        Runnable task = this::updateCadence;
+
+        scheduledTask = executorService.scheduleAtFixedRate(task, 0, 1, TimeUnit.SECONDS);
+    }
+
     private final SensorConnection.Listener mListner = new SensorConnection.Listener() {
         @Override
         public void onNewCapabilityDetected(@NonNull SensorConnection sensorConnection, @NonNull Capability.CapabilityType capabilityType) {
+            Log.d(TAG, "Capability Found: " + capabilityType.toString());
             if (capabilityType == Capability.CapabilityType.Kickr){
                 kickr = (Kickr)sensorConnection.getCurrentCapability(capabilityType);
-                connectionComplete = true;
+                //connectionComplete = true;
 //                kickr.sendSetStandardMode(1);
             }
             else if (capabilityType == Capability.CapabilityType.CrankRevs){
                 crankRevs = (CrankRevs)sensorConnection.getCurrentCapability(capabilityType);
+                startCrankRevsTask();
             }
         }
 
@@ -76,6 +103,27 @@ public class WahooService extends Service {
 
         }
     };
+
+
+    CrankRevs.Data getCrankRevsData()
+    {
+//        if(crankRevs != null) {
+//            CrankRevs crankRevs = (CrankRevs)connection.getCurrentCapability(Capability.CapabilityType.CrankRevs);
+            if (crankRevs != null) {
+                Log.d(TAG, "getCrankRevsData() - crankRevs FOUND!");
+                return crankRevs.getCrankRevsData();
+            } else {
+// The sensor connection does not currently support the crank revs capability
+                Log.d(TAG, "getCrankRevsData() - crankRevs NOT found :(");
+                return null;
+            }
+//        } else {
+//// Sensor not connected
+//            Log.d(TAG, "getCrankRevsData() - Sensor not connected");
+//            return null;
+//        }
+    }
+
 
     @Nullable
     @Override
@@ -105,8 +153,10 @@ public class WahooService extends Service {
     }
 
     public void connect(ConnectionParams params){
+        Log.d(TAG, "connect: " + params.toString());
+
         connectionParams = params;
-        connectionComplete = false;
+        //connectionComplete = false;
         connection = mHardwareConnector.requestSensorConnection(connectionParams, mListner);
     }
 
@@ -114,8 +164,15 @@ public class WahooService extends Service {
         connection.disconnect();
     }
 
+    public boolean isConnected() {
+        return connection != null && connection.isConnected();
+    }
+
     public void setResistance(float resistance){
-        assert kickr != null;
+        if (kickr == null)
+            return;
+        if (connection == null || !connection.isConnected())
+            return;
         if (resistance < 0.0 || resistance > 1.0)
             return;
 
@@ -123,15 +180,23 @@ public class WahooService extends Service {
     }
 
     public float getResistance(){
-        assert kickr != null;
+        if (kickr == null)
+            return 0.0f;
+        if (connection == null || !connection.isConnected())
+            return 0.0f;
+
         float resistance = kickr.getResistanceModeResistance();
         return resistance;
     }
 
-    public int getCadence(){
-        assert crankRevs != null;
-        CrankRevs.Data data = crankRevs.getCrankRevsData();
+    private void updateCadence(){
+        CrankRevs.Data data = getCrankRevsData();
         assert data != null;
-        return data.getCrankRevs();
+        AngularSpeed crankSpeed = getCrankRevsData().getCrankSpeed();
+        cadence = crankSpeed.asRpm();
+    }
+
+    public double getCadence(){
+        return cadence;
     }
 }

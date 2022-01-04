@@ -560,6 +560,11 @@ public class MainActivity extends AppCompatActivity
     }
 
     @Override
+    public double checkCadence() {
+        return mWahooService.getCadence();
+    }
+
+    @Override
     public void onClick(View view) {
         if (!gameView.isPlaying() && (animator == null || !animator.isStarted())) {
             gameView.setOnClickListener(null);

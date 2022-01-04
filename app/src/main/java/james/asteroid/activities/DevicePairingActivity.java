@@ -13,6 +13,7 @@ import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -30,6 +31,7 @@ import james.asteroid.R;
 import james.asteroid.services.WahooService;
 
 public class DevicePairingActivity extends AppCompatActivity implements DiscoveryListener {
+    private static final String TAG = "DevicePairingActivity";
 
     WahooService mWahooService;
     boolean mBound = false;
@@ -48,7 +50,6 @@ public class DevicePairingActivity extends AppCompatActivity implements Discover
             mBound = true;
 
              mWahooService.startDiscovery(DevicePairingActivity.this);
-             Toast.makeText(DevicePairingActivity.this, "Discovery Started", Toast.LENGTH_SHORT).show();
         }
 
         @Override
@@ -76,10 +77,11 @@ public class DevicePairingActivity extends AppCompatActivity implements Discover
         checkPermission(Manifest.permission.ACCESS_NETWORK_STATE, 104);
         checkPermission(Manifest.permission.ACCESS_FINE_LOCATION, 105);
 
-
-        Toast.makeText(DevicePairingActivity.this, "onStart", Toast.LENGTH_SHORT).show();
+        layout.removeAllViews();
         Intent intent = new Intent(this, WahooService.class);
         bindService(intent, connection, Context.BIND_AUTO_CREATE);
+        addContinueButton();
+        addCadenceButton();
     }
 
 
@@ -90,16 +92,12 @@ public class DevicePairingActivity extends AppCompatActivity implements Discover
         if (ContextCompat.checkSelfPermission(DevicePairingActivity.this, permission) == PackageManager.PERMISSION_DENIED) {
             ActivityCompat.requestPermissions(DevicePairingActivity.this, new String[] { permission }, requestCode);
         }
-        else {
-            Toast.makeText(DevicePairingActivity.this, "Permission already granted", Toast.LENGTH_SHORT).show();
-        }
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode,
                                            @NonNull String[] permissions,
                                            @NonNull int[] grantResults) {
-        // Toast.makeText(DevicePairingActivity.this, "onRequestPermissionsResult", Toast.LENGTH_SHORT).show();
     }
 
 
@@ -114,28 +112,78 @@ public class DevicePairingActivity extends AppCompatActivity implements Discover
 
     @Override
     public void onDeviceDiscovered(@NonNull ConnectionParams connectionParams) {
+        addDeviceButton(connectionParams);
+    }
+
+    public void addCadenceButton(){
+        String buttonText = "Cadence";
+
+
+        Button button = new Button(this);
+        button.setText(buttonText);
+        button.setOnClickListener(v -> {
+            try {
+                double cadence = mWahooService.getCadence();
+                Toast.makeText(DevicePairingActivity.this,"Cadence: " + String.valueOf(cadence), Toast.LENGTH_SHORT).show();
+            }
+            catch(Exception e) {
+                Log.d(TAG, e.toString());
+            }
+
+
+        });
+        layout.addView(button);
+
+    }
+
+    public void addContinueButton(){
+        String buttonText = "Continue";
+
+
+        Button button = new Button(this);
+        button.setText(buttonText);
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // Create a task
+                Runnable task = () -> {
+                    scheduledTask.cancel(false);
+                    Intent intent = new Intent(DevicePairingActivity.this, MainActivity.class);
+                    startActivity(intent);
+                };
+
+                scheduledTask = executorService.scheduleAtFixedRate(task, 0, 1, TimeUnit.SECONDS);
+            }
+        });
+        layout.addView(button);
+
+    }
+
+    public void addDeviceButton(@NonNull ConnectionParams connectionParams){
         String name = connectionParams.getName();
         String productType = connectionParams.getProductType().name();
         String sensorType = connectionParams.getSensorType().name();
         String id = connectionParams.getId();
+        String buttonText = "Device - Name: " + name + ", Sensor Type: " + sensorType + " Product: " + productType + ", ID: " + id;
+
 
         Button button = new Button(this);
-        button.setText("Device - Name: " + name + ", Sensor Type: " + sensorType + " Product: " + productType + ", ID: " + id);
+        button.setText(buttonText);
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                mWahooService.connect(connectionParams);
+                 mWahooService.connect(connectionParams);
 
-                // Create a task
-                Runnable task = () -> {
-                    if (mWahooService.connectionComplete){
-                        scheduledTask.cancel(false);
-                        Intent intent = new Intent(DevicePairingActivity.this, MainActivity.class);
-                        startActivity(intent);
-                    }
-                };
-
-                scheduledTask = executorService.scheduleAtFixedRate(task, 0, 1, TimeUnit.SECONDS);
+//                // Create a task
+//                Runnable task = () -> {
+//                    if (mWahooService.isConnected()){
+//                        scheduledTask.cancel(false);
+//                        Intent intent = new Intent(DevicePairingActivity.this, MainActivity.class);
+//                        startActivity(intent);
+//                    }
+//                };
+//
+//                scheduledTask = executorService.scheduleAtFixedRate(task, 0, 1, TimeUnit.SECONDS);
             }
         });
         layout.addView(button);

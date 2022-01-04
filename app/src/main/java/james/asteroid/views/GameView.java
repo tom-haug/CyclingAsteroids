@@ -17,6 +17,7 @@ import android.hardware.SensorManager;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -106,7 +107,7 @@ public class GameView extends SurfaceView implements Runnable, View.OnTouchListe
         paint.setAntiAlias(true);
 
         accentPaint = new Paint();
-        accentPaint.setColor(colorPrimaryLight);
+        accentPaint.setColor(colorAccent);
         accentPaint.setStyle(Paint.Style.FILL);
         accentPaint.setAntiAlias(true);
 
@@ -157,52 +158,48 @@ public class GameView extends SurfaceView implements Runnable, View.OnTouchListe
 
     public void onSensorChanged(SensorEvent event) {
         if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER)
-            mGravity = LPF(event.values.clone(), mGravity);
+            mGravity = LPF(event.values, mGravity);
         if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD)
-            mGeomagnetic = LPF(event.values.clone(), mGeomagnetic);
+            mGeomagnetic = LPF(event.values, mGeomagnetic);
         if (mGravity != null && mGeomagnetic != null) {
             float R[] = new float[9];
             float I[] = new float[9];
             boolean success = SensorManager.getRotationMatrix(R, I, mGravity, mGeomagnetic);
             if (success) {
-                float orientation[] = new float[3];
-                SensorManager.getOrientation(R, orientation);
+                float[] remapMatrix = new float[9];
+                SensorManager.remapCoordinateSystem(R, SensorManager.AXIS_X, SensorManager.AXIS_Z, remapMatrix);
+
+                float[] orientation = new float[3];
+                SensorManager.getOrientation(remapMatrix, orientation);
                 float currentAbsAzimut = orientation[0]; // orientation contains: azimut, pitch and roll
 
                 if (initialAbsAzimut == null){
                     initialAbsAzimut = currentAbsAzimut;
                 }
-                float minAbsLeftAzimut = initialAbsAzimut - ((float)Math.PI / 4.0f);
-                float maxAbsRightAzimut = initialAbsAzimut + ((float)Math.PI / 4.0f);
+                float minAbsLeftAzimut = initialAbsAzimut - ((float)Math.PI / 8.0f);
+                float maxAbsRightAzimut = initialAbsAzimut + ((float)Math.PI / 8.0f);
 
                 if (currentAbsAzimut < minAbsLeftAzimut)
                     currentAbsAzimut = minAbsLeftAzimut;
                 if (currentAbsAzimut > maxAbsRightAzimut)
                     currentAbsAzimut = maxAbsRightAzimut;
 
-//                // Todo: find a better way to smooth out the readings
-//                azimutReadings.add(currentAbsAzimut);
-//                if (azimutReadings.size() > 15)
-//                    azimutReadings.remove(0);
-//                float total = 0.0f;
-//                for (float reading: azimutReadings){
-//                    total += reading;
-//                }
-//                float average = total / azimutReadings.size();
-
-
                 float relativeToInitial = currentAbsAzimut - initialAbsAzimut;
-                shipPositionX = (relativeToInitial + ((float)Math.PI / 4.0f)) / (2 * ((float)Math.PI / 4.0f));
+
+                shipPositionX = (relativeToInitial + ((float)Math.PI / 8.0f)) / (2 * ((float)Math.PI / 8.0f));
             }
         }
     }
 
-    private static final float ALPHA = 0.1f; //1/16F;//adjust sensitivity
-    private float[] LPF(float[] input, float[] output) {
-        if ( output == null ) return input;
+    private static final float ALPHA = 1/12F;//adjust sensitivity
+    private float[] LPF(float[] input, float[] prev) {
+        if ( prev == null ) return input;
+
+        float[] output = input.clone();
         for ( int i=0; i<input.length; i++ ) {
-            output[i] = output[i] + ALPHA * (input[i] - output[i]);
-        }return output;
+            output[i] = prev[i] + ALPHA * (input[i] - prev[i]);
+        }
+        return output;
     }
 
 
@@ -332,7 +329,7 @@ public class GameView extends SurfaceView implements Runnable, View.OnTouchListe
                             });
                         }
 
-                        canvas.drawRect(rect, paint);
+                        canvas.drawRect(rect, accentPaint);
                     } else projectiles.remove(projectile);
                 }
 
@@ -419,8 +416,7 @@ public class GameView extends SurfaceView implements Runnable, View.OnTouchListe
         if (listener != null)
             listener.onStart(isTutorial);
 
-        final Runnable beeper = () -> fire();
-        fireTask = scheduler.scheduleAtFixedRate(beeper, 0, 500, TimeUnit.MILLISECONDS);
+        fireTask = scheduler.schedule(this::fire, 500, TimeUnit.MILLISECONDS);
     }
 
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
@@ -505,7 +501,25 @@ public class GameView extends SurfaceView implements Runnable, View.OnTouchListe
         thread.start();
     }
 
+    private static final String TAG = "GameView";
+
     private void fire(){
+
+        //schedule next auto fire based on cadence
+        long cadence = (long)listener.checkCadence();
+        if (cadence > 0.0){
+
+            Log.d(TAG, "Cadence: " + cadence);
+
+            long waitTime = (long)Math.pow((120 - cadence), 2);
+            if (waitTime < 200)
+                waitTime = 200;
+            if (waitTime > 3000)
+                waitTime = 3000;
+            fireTask = scheduler.schedule(this::fire, waitTime, TimeUnit.MILLISECONDS);
+        }
+
+        //continue on and fire
         if (ammoAnimator != null && ammoAnimator.isStarted())
             ammoAnimator.end();
         if (ammo > 0) {
@@ -633,5 +647,7 @@ public class GameView extends SurfaceView implements Runnable, View.OnTouchListe
         void onOutOfAmmo();
 
         void onAsteroidHit(int score);
+
+        double checkCadence();
     }
 }

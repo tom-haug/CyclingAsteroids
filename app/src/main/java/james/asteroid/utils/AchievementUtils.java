@@ -110,6 +110,11 @@ public class AchievementUtils implements GameView.GameListener {
         asteroidsHit++;
     }
 
+    @Override
+    public double checkCadence() {
+        return 0;
+    }
+
     private void unlock(@StringRes int key) {
         if (apiClient.isConnected())
             Games.Achievements.unlock(apiClient, context.getString(key));
