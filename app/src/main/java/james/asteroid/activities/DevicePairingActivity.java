@@ -1,5 +1,7 @@
 package james.asteroid.activities;
 
+import static com.wahoofitness.connector.capabilities.Capability.CapabilityType.*;
+
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -11,14 +13,17 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
+import com.wahoofitness.connector.capabilities.Capability;
 import com.wahoofitness.connector.conn.connections.params.ConnectionParams;
 import com.wahoofitness.connector.listeners.discovery.DiscoveryListener;
 
@@ -30,13 +35,15 @@ import java.util.concurrent.TimeUnit;
 import james.asteroid.R;
 import james.asteroid.services.WahooService;
 
-public class DevicePairingActivity extends AppCompatActivity implements DiscoveryListener {
+public class DevicePairingActivity extends AppCompatActivity implements DiscoveryListener, WahooService.Listener {
     private static final String TAG = "DevicePairingActivity";
 
     WahooService mWahooService;
     boolean mBound = false;
 
     LinearLayout layout;
+    TextView powerView;
+    TextView cadenceView;
 
 
     /** Defines callbacks for service binding, passed to bindService() */
@@ -47,6 +54,7 @@ public class DevicePairingActivity extends AppCompatActivity implements Discover
             // We've bound to LocalService, cast the IBinder and get LocalService instance
             WahooService.LocalBinder binder = (WahooService.LocalBinder) service;
             mWahooService = binder.getService();
+            mWahooService.setListener(DevicePairingActivity.this);
             mBound = true;
 
              mWahooService.startDiscovery(DevicePairingActivity.this);
@@ -64,6 +72,8 @@ public class DevicePairingActivity extends AppCompatActivity implements Discover
         setContentView(R.layout.activity_device_pairing);
 
         layout = findViewById(R.id.devicePairingLayout);
+        powerView = findViewById(R.id.powerView);
+        cadenceView = findViewById(R.id.cadenceView);
     }
 
     @Override
@@ -206,5 +216,18 @@ public class DevicePairingActivity extends AppCompatActivity implements Discover
     @Override
     public void onDiscoveredDeviceRssiChanged(@NonNull ConnectionParams connectionParams, int i) {
 
+    }
+
+    @Override
+    public void onSensorConnected(Capability.CapabilityType type) {
+        switch (type) {
+            case Kickr:
+                powerView.setBackgroundColor(Color.GREEN);
+                break;
+            case CrankRevs:
+                cadenceView.setBackgroundColor(Color.GREEN);
+                break;
+
+        }
     }
 }

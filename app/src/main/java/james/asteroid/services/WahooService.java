@@ -5,7 +5,6 @@ import android.content.Intent;
 import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -14,13 +13,9 @@ import com.wahoofitness.common.datatypes.AngularSpeed;
 import com.wahoofitness.connector.HardwareConnector;
 import com.wahoofitness.connector.HardwareConnectorEnums;
 import com.wahoofitness.connector.HardwareConnectorTypes;
-import com.wahoofitness.connector.capabilities.BikeTrainer;
 import com.wahoofitness.connector.capabilities.Capability;
-import com.wahoofitness.connector.capabilities.Connection;
 import com.wahoofitness.connector.capabilities.CrankRevs;
-import com.wahoofitness.connector.capabilities.DeviceInfo;
 import com.wahoofitness.connector.capabilities.Kickr;
-import com.wahoofitness.connector.capabilities.KickrAdvanced;
 import com.wahoofitness.connector.conn.connections.SensorConnection;
 import com.wahoofitness.connector.conn.connections.params.ConnectionParams;
 import com.wahoofitness.connector.listeners.discovery.DiscoveryListener;
@@ -29,9 +24,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-
-import james.asteroid.activities.DevicePairingActivity;
-import james.asteroid.activities.MainActivity;
 
 public class WahooService extends Service {
     private static final String TAG = "WahooService";
@@ -78,10 +70,15 @@ public class WahooService extends Service {
         scheduledTask = executorService.scheduleAtFixedRate(task, 0, 1, TimeUnit.SECONDS);
     }
 
-    private final SensorConnection.Listener mListner = new SensorConnection.Listener() {
+    private final SensorConnection.Listener sensorListener = new SensorConnection.Listener() {
         @Override
         public void onNewCapabilityDetected(@NonNull SensorConnection sensorConnection, @NonNull Capability.CapabilityType capabilityType) {
             Log.d(TAG, "Capability Found: " + capabilityType.toString());
+
+            if (listener != null){
+                listener.onSensorConnected(capabilityType);
+            }
+
             if (capabilityType == Capability.CapabilityType.Kickr){
                 kickr = (Kickr)sensorConnection.getCurrentCapability(capabilityType);
                 //connectionComplete = true;
@@ -157,7 +154,7 @@ public class WahooService extends Service {
 
         connectionParams = params;
         //connectionComplete = false;
-        connection = mHardwareConnector.requestSensorConnection(connectionParams, mListner);
+        connection = mHardwareConnector.requestSensorConnection(connectionParams, sensorListener);
     }
 
     public void disconnect(){
@@ -198,5 +195,15 @@ public class WahooService extends Service {
 
     public double getCadence(){
         return cadence;
+    }
+
+
+    private Listener listener;
+    public void setListener(WahooService.Listener listener) {
+        this.listener = listener;
+    }
+
+    public interface Listener {
+        void onSensorConnected(Capability.CapabilityType type);
     }
 }
