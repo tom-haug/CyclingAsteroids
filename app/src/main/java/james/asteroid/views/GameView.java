@@ -156,6 +156,7 @@ public class GameView extends SurfaceView implements Runnable, View.OnTouchListe
     float[] mGravity;
     float[] mGeomagnetic;
 
+    private static final float ACCELEROMETER_RANGE = ((float)Math.PI / 4.0f);
     public void onSensorChanged(SensorEvent event) {
         if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER)
             mGravity = LPF(event.values, mGravity);
@@ -176,8 +177,8 @@ public class GameView extends SurfaceView implements Runnable, View.OnTouchListe
                 if (initialAbsAzimut == null){
                     initialAbsAzimut = currentAbsAzimut;
                 }
-                float minAbsLeftAzimut = initialAbsAzimut - ((float)Math.PI / 8.0f);
-                float maxAbsRightAzimut = initialAbsAzimut + ((float)Math.PI / 8.0f);
+                float minAbsLeftAzimut = initialAbsAzimut - ACCELEROMETER_RANGE;
+                float maxAbsRightAzimut = initialAbsAzimut + ACCELEROMETER_RANGE;
 
                 if (currentAbsAzimut < minAbsLeftAzimut)
                     currentAbsAzimut = minAbsLeftAzimut;
@@ -186,12 +187,12 @@ public class GameView extends SurfaceView implements Runnable, View.OnTouchListe
 
                 float relativeToInitial = currentAbsAzimut - initialAbsAzimut;
 
-                shipPositionX = (relativeToInitial + ((float)Math.PI / 8.0f)) / (2 * ((float)Math.PI / 8.0f));
+                shipPositionX = (relativeToInitial + ACCELEROMETER_RANGE) / (2 * ACCELEROMETER_RANGE);
             }
         }
     }
 
-    private static final float ALPHA = 1/12F;//adjust sensitivity
+    private static final float ALPHA = 1/24F;//adjust sensitivity
     private float[] LPF(float[] input, float[] prev) {
         if ( prev == null ) return input;
 
@@ -503,6 +504,7 @@ public class GameView extends SurfaceView implements Runnable, View.OnTouchListe
 
     private static final String TAG = "GameView";
 
+    private static final float CADENCE_WAIT_FACTOR = 1.8f;
     private void fire(){
 
         //schedule next auto fire based on cadence
@@ -511,11 +513,11 @@ public class GameView extends SurfaceView implements Runnable, View.OnTouchListe
 
             Log.d(TAG, "Cadence: " + cadence);
 
-            long waitTime = (long)Math.pow((120 - cadence), 2);
-            if (waitTime < 200)
-                waitTime = 200;
-            if (waitTime > 3000)
-                waitTime = 3000;
+            long waitTime = (long)Math.pow((120 - cadence), CADENCE_WAIT_FACTOR) + 300;
+//            if (waitTime < 200)
+//                waitTime = 200;
+            if (waitTime > 2000)
+                waitTime = 2000;
             fireTask = scheduler.schedule(this::fire, waitTime, TimeUnit.MILLISECONDS);
         }
 

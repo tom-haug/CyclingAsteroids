@@ -18,11 +18,13 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.util.Log;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.wahoofitness.connector.HardwareConnectorTypes;
 import com.wahoofitness.connector.capabilities.Capability;
 import com.wahoofitness.connector.conn.connections.params.ConnectionParams;
 import com.wahoofitness.connector.listeners.discovery.DiscoveryListener;
@@ -44,7 +46,7 @@ public class DevicePairingActivity extends AppCompatActivity implements Discover
     LinearLayout layout;
     TextView powerView;
     TextView cadenceView;
-
+    Button continueButton;
 
     /** Defines callbacks for service binding, passed to bindService() */
     private ServiceConnection connection = new ServiceConnection() {
@@ -74,6 +76,16 @@ public class DevicePairingActivity extends AppCompatActivity implements Discover
         layout = findViewById(R.id.devicePairingLayout);
         powerView = findViewById(R.id.powerView);
         cadenceView = findViewById(R.id.cadenceView);
+        continueButton = findViewById(R.id.continueButton);
+        continueButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(DevicePairingActivity.this, MainActivity.class);
+                startActivity(intent);
+            }
+        });
+
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
 
     @Override
@@ -90,8 +102,6 @@ public class DevicePairingActivity extends AppCompatActivity implements Discover
         layout.removeAllViews();
         Intent intent = new Intent(this, WahooService.class);
         bindService(intent, connection, Context.BIND_AUTO_CREATE);
-        addContinueButton();
-        addCadenceButton();
     }
 
 
@@ -122,51 +132,13 @@ public class DevicePairingActivity extends AppCompatActivity implements Discover
 
     @Override
     public void onDeviceDiscovered(@NonNull ConnectionParams connectionParams) {
+        HardwareConnectorTypes.SensorType type = connectionParams.getSensorType();
+        if (type == HardwareConnectorTypes.SensorType.ACCEL
+            || type == HardwareConnectorTypes.SensorType.BAROM){
+            return;
+        }
+
         addDeviceButton(connectionParams);
-    }
-
-    public void addCadenceButton(){
-        String buttonText = "Cadence";
-
-
-        Button button = new Button(this);
-        button.setText(buttonText);
-        button.setOnClickListener(v -> {
-            try {
-                double cadence = mWahooService.getCadence();
-                Toast.makeText(DevicePairingActivity.this,"Cadence: " + String.valueOf(cadence), Toast.LENGTH_SHORT).show();
-            }
-            catch(Exception e) {
-                Log.d(TAG, e.toString());
-            }
-
-
-        });
-        layout.addView(button);
-
-    }
-
-    public void addContinueButton(){
-        String buttonText = "Continue";
-
-
-        Button button = new Button(this);
-        button.setText(buttonText);
-        button.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                // Create a task
-                Runnable task = () -> {
-                    scheduledTask.cancel(false);
-                    Intent intent = new Intent(DevicePairingActivity.this, MainActivity.class);
-                    startActivity(intent);
-                };
-
-                scheduledTask = executorService.scheduleAtFixedRate(task, 0, 1, TimeUnit.SECONDS);
-            }
-        });
-        layout.addView(button);
-
     }
 
     public void addDeviceButton(@NonNull ConnectionParams connectionParams){
@@ -175,7 +147,6 @@ public class DevicePairingActivity extends AppCompatActivity implements Discover
         String sensorType = connectionParams.getSensorType().name();
         String id = connectionParams.getId();
         String buttonText = "Device - Name: " + name + ", Sensor Type: " + sensorType + " Product: " + productType + ", ID: " + id;
-
 
         Button button = new Button(this);
         button.setText(buttonText);

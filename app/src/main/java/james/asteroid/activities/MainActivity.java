@@ -136,6 +136,7 @@ public class MainActivity extends AppCompatActivity
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         setContentView(R.layout.activity_main);
 
 //        apiClient = new GoogleApiClient.Builder(this)
@@ -468,6 +469,8 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public void onStart(boolean isTutorial) {
+        mWahooService.setResistance(0.0f);
+
         if (achievementUtils != null)
             achievementUtils.onStart(isTutorial);
     }

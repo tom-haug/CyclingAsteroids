@@ -81,8 +81,7 @@ public class WahooService extends Service {
 
             if (capabilityType == Capability.CapabilityType.Kickr){
                 kickr = (Kickr)sensorConnection.getCurrentCapability(capabilityType);
-                //connectionComplete = true;
-//                kickr.sendSetStandardMode(1);
+                setResistance(0.0f);
             }
             else if (capabilityType == Capability.CapabilityType.CrankRevs){
                 crankRevs = (CrankRevs)sensorConnection.getCurrentCapability(capabilityType);
